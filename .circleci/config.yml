@@ -1,6 +1,23 @@
 version: 2.1
 
 commands:
+  create-env:
+    description: Create .env
+    steps:
+      - run:
+          name: Adding environment variables to .env file
+          command: |
+            echo ENVIRONMENT=$ENVIRONMENT > "./backend/.env"
+            echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> "./backend/.env"
+            echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> "./backend/.env"
+            echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> "./backend/.env"
+            echo TYPEORM_MIGRATIONS=$TYPEORM_MIGRATIONS >> "./backend/.env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> "./backend/.env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> "./backend/.env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> "./backend/.env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> "./backend/.env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> "./backend/.env"
+            
   destroy-environment:
     description: Destroy Environment
     steps:
@@ -154,21 +171,7 @@ jobs:
           command: |
             apk add --update tar gzip ansible
             pip install awscli
-      - run:
-          name: Add env file
-          command: |
-            cd backend
-            touch .env
-            echo ENVIROMENT=production > ".env"
-            echo TYPEORM_CONNECTION=postgres >> ".env"
-            echo TYPEORM_MIGRATIONS_DIR=./src/migrations >> ".env"
-            echo TYPEORM_ENTITIES=./src/modules/domain/**/*.entity.ts >> ".env"
-            echo TYPEORM_MIGRATIONS=./src/migrations/*.ts >> ".env"
-            echo TYPEORM_HOST=$TYPEORM_HOST >> ".env"
-            echo TYPEORM_PORT=$TYPEORM_PORT >> ".env"
-            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> ".env"
-            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
-            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
+      - create-env
       - run:
           name: Configure server
           working_directory: ./.circleci/ansible
@@ -179,16 +182,17 @@ jobs:
     
   run-migrations:
     docker:
-      - image: circleci/node
+      - image: circleci/node:13.8.0
     steps:
       - checkout
       - attach_workspace:
           at: .
+      - create-env
       - run:
           name: Run Database Migration
           working_directory: ./backend
           command: |
-            npm install
+            ls -la
             npm run migrations > migrations_dump.txt
             cat migrations_dump.txt
       - run:
