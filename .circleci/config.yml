@@ -46,6 +46,9 @@ jobs:
             cd frontend
             npm install
             npm run build
+      - save_cache:
+          key: frontend-build
+          paths: [frontend/node_modules]
    
   build-backend:
     docker:
@@ -58,17 +61,21 @@ jobs:
             cd backend
             npm install
             npm run build
+      - save_cache:
+          key: backend-build
+          paths: [backend/node_modules]
         
   test-frontend:
     docker:
       - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [frontend-build]
       - run:
           name: Test front-end
           command: |
             cd frontend
-            npm install
             npm run test
                 
   test-backend:
@@ -76,11 +83,12 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [backend-build]
       - run:
           name: Test back-end
           command: |
             cd backend
-            npm install
             npm run test
       
   scan-frontend:
@@ -88,11 +96,12 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [frontend-build]
       - run:
           name: Audit front-end vulnerabilities check
           command: |
             cd frontend
-            npm install
             npm audit fix --audit-level=critical --force
 
   scan-backend:
@@ -100,11 +109,12 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [backend-build]
       - run:
           name: Audit back-end vulnerabilities check
           command: |
             cd backend
-            npm install
             npm audit fix --audit-level=critical --force
         
   deploy-infrastructure:
@@ -185,16 +195,16 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [backend-build]
       - attach_workspace:
           at: .
-      - run: sudo apt-get install jq
       - create-env
       - run:
           name: Run Database Migration
           working_directory: ./backend
           command: |
             ls -la
-            npm install
             npm run migrations > migrations_dump.txt
             cat migrations_dump.txt
       - run:
