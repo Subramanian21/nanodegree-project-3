@@ -210,8 +210,6 @@ jobs:
           command: |
             npm install
             touch migrations_dump.txt
-            npm run migrations > migrations_dump.txt
-            cat migrations_dump.txt
       - run:
           name: Send migration results to memstash
           working_directory: ./backend
