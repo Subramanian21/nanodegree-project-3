@@ -17,7 +17,7 @@ commands:
             echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> "./backend/.env"
             echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> "./backend/.env"
             echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> "./backend/.env"
-            
+            cat ./backend/.env
   destroy-environment:
     description: Destroy Environment
     steps:
@@ -187,12 +187,14 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
+      - run: sudo apt-get install jq
       - create-env
       - run:
           name: Run Database Migration
           working_directory: ./backend
           command: |
             ls -la
+            npm install
             npm run migrations > migrations_dump.txt
             cat migrations_dump.txt
       - run:
