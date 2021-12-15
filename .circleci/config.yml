@@ -76,6 +76,7 @@ jobs:
           name: Test front-end
           command: |
             cd frontend
+            npm install
             npm run test
                 
   test-backend:
@@ -89,6 +90,7 @@ jobs:
           name: Test back-end
           command: |
             cd backend
+            npm install
             npm run test
       
   scan-frontend:
@@ -102,6 +104,7 @@ jobs:
           name: Audit front-end vulnerabilities check
           command: |
             cd frontend
+            npm install
             npm audit fix --audit-level=critical --force
 
   scan-backend:
@@ -115,6 +118,7 @@ jobs:
           name: Audit back-end vulnerabilities check
           command: |
             cd backend
+            npm install
             npm audit fix --audit-level=critical --force
         
   deploy-infrastructure:
@@ -204,13 +208,15 @@ jobs:
           name: Run Database Migration
           working_directory: ./backend
           command: |
-            ls -la
+            npm install
+            touch migrations_dump.txt
             npm run migrations > migrations_dump.txt
             cat migrations_dump.txt
       - run:
           name: Send migration results to memstash
           working_directory: ./backend
           command: |
+            cat migrations_dump.txt
             if grep -q "has been executed successfully." migrations_dump.txt
             then
               echo "DB migration was successful"
