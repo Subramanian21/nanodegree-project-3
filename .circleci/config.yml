@@ -151,7 +151,7 @@ jobs:
           command: |
             echo "[all]" >> inventory.txt
             cat inventory.txt
-            ansible-playbook -i inventory.txt configure-server.yaml
+            ansible-playbook -i inventory.txt configure-server.yml
       - destroy-environment
         
 
