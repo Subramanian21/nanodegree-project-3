@@ -129,6 +129,30 @@ jobs:
           paths:
             - .circleci/ansible/inventory
       - destroy-environment
+      
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - add_ssh_keys:
+          fingerprints: ["32:53:ee:b1:8d:80:99:e3:a9:4d:ca:c2:15:05:7e:ac:e7:6c:3e:5c"]
+      - run:
+          name: Install dependencies
+          working_directory: ./.circleci/ansible
+          command: |
+            apk add --update tar gzip ansible
+            pip install awscli
+      - run:
+          name: Configure server
+          working_directory: ./.circleci/ansible
+          command: |
+            echo "[all]" >> inventory.txt
+            cat inventory.txt
+            ansible-playbook -i inventory.txt configure-server.yaml
+      - destroy-environment
         
 
 workflows:
@@ -150,3 +174,5 @@ workflows:
             branches:
               only:
                 - main
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
