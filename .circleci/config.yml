@@ -1,4 +1,21 @@
 version: 2.1
+
+commands:
+  destroy_environment:
+    description: Destroy Environment
+    steps:
+      - run:
+          name: Destroy backend
+          command: |
+            aws cloudformation delete-stack --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
+          when: on_fail
+      - run:
+          name: Destroy frontend
+          command: |
+            aws s3 rm s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+            aws cloudformation delete-stack --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"
+          when: on_fail
+  
            
 jobs:
   build-frontend:
