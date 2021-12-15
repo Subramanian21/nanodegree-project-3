@@ -1,33 +1,31 @@
 ---
-- name: Upgrade npm
-  become: true
-  shell: |
-    npm install -g npm@latest
-    
-- name: Copy compiled files
-  become: true
-  unarchive:
-    src: /root/project/backend.tar.gz
-    dest: /home/ubuntu/
+- name: "Copy compiled backend app"
+  copy:
+    src: dist.zip
+    dest: "~/backend_app/dist.zip"
 
-- name: Build backend
-  become: true
-  ignore_errors: yes
+- name: "Unzip backend files to correct directory"
   shell: |
-    cd /home/ubuntu/backend
+    cd ~/backend_app
+    unzip dist.zip
+    rm -rf dist.zip
+
+- name: "Install dependencies for project"
+  shell: |
+    cd ~/backend_app
     npm install
-    npm run build
-    
-- name: Stop and delete already running server
-  become: true
-  ignore_errors: yes
+
+- name: "Executing node"
   shell: |
-    pm2 stop backend
-    pm2 delete backend
-    
-- name: Start server
-  become: true
+    export
+    cd ~/backend_app
+    pm2 start main.js
+  register: execute_node
+
+- name: print message
+  debug:
+    msg: "{{ execute_node.stdout_lines }}"
+
+- name: "Configure pm2 to start as service"
   shell: |
-    cd /home/ubuntu/backend
-    pm2 start npm --name backend -- start
-    pm2 ls
+    env PATH=$PATH:/usr/local/bin pm2 startup -u ubuntu

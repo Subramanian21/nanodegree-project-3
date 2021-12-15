@@ -28,4 +28,7 @@
     - TYPEORM_MIGRATIONS_DIR: "{{ lookup('env', 'TYPEORM_MIGRATIONS_DIR')}}"
 
   roles:
-    - deploy
+    - role: weareinteractive.environment
+      become: true
+    - role: deploy
+      become: true
