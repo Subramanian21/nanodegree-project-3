@@ -1,19 +1,20 @@
-- name: "build package"
-  shell: |
-    cd /home/ubuntu/backend
-    npm run build
+---
+- name: "copy compiled files"
+  become: yes
+  synchronize:
+    src: ../../backend/dist
+    dest: /home/ubuntu/uda_backend
+    recursive: true
 
-- name: "run migrations and save status to https://memstash.io/"
-  shell: |
-    cd /home/ubuntu/backend
-    npm run migrations > migrations.txt
-    cat migrations.txt
-  register: migration_output
+- name: "copy node_modules"
+  become: yes
+  synchronize:
+    src: ../../backend/node_modules
+    dest: /home/ubuntu/uda_backend
+    recursive: true
 
-- debug:
-    msg: "{{ migration_output.stdout_lines }}"
-
-- name: "use pm2 to run the node server"
-  shell: |
-    cd /home/ubuntu/backend
-    pm2 start npm -- run "start:dev"
+- name: "start server"
+  become: true
+  command: pm2 start -f ./main.js
+  args:
+    chdir: /home/ubuntu/uda_backend/dist
