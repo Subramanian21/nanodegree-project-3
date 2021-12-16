@@ -381,17 +381,6 @@ jobs:
       - revert-migrations
       - destroy-environment
       
-  cleanup:
-    docker:
-      - image: amazon/aws-cli
-    steps:
-      - checkout
-      - run:
-          name: Get old stack workflow id and Remove old stacks and files
-          command: |
-            
-      - revert-migrations
-      - destroy-environment
 
 workflows:
   default:
@@ -423,5 +412,3 @@ workflows:
           requires: [deploy-backend, deploy-frontend]
       - cloudfront-update:
           requires: [smoke-test]
-      - cleanup:
-          requires: [cloudfront-update]
