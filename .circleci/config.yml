@@ -65,6 +65,7 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
+            - backend/node_modules
             - backend/dist
       - save_cache:
           key: backend-build
