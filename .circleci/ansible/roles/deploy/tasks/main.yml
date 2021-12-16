@@ -1,36 +1,50 @@
----
-- name: "copy compiled files"
+- name: "install typescript"
   become: yes
-  synchronize:
-    src: ../../backend/dist
-    dest: /home/ubuntu/uda_backend
-    recursive: true
+  npm:
+    name: typescript
+    global: yes
+    production: yes
+    state: present
 
-- name: "copy node_modules"
+- name: "update dependancies"
   become: yes
-  synchronize:
-    src: ../../backend/node_modules
-    dest: /home/ubuntu/uda_backend
-    recursive: true
+  shell: |
+    curl -sL https://rpm.nodesource.com/setup_14.x | sudo -E bash - 
+    apt-get install -y nodejs
+    npm install --save glob
 
-- name: "delete anything that might already be running"
-  become: true
-  command: pm2 delete all
-  ignore_errors: true
+- name: "Copy backend build to server"
+  unarchive:
+    src: ~/project/backend/backend.tar.gz
+    dest: /home/ubuntu/
+    owner: ubuntu
 
-- name: "start server"
+- name: "Copy package.json to server"
   become: yes
-  command: pm2 start -f ./main.js
+  copy:
+    src: ~/project/backend/package.json
+    dest: /home/ubuntu/
+    owner: ubuntu
+
+- name: Build
+  become: yes
+  shell: |
+    cd /home/ubuntu/backend
+    npm install
+    npm run build
+
+- name: start pm2 service
+  command: pm2 start main.js --name backend
   args:
-    chdir: /home/ubuntu/uda_backend/dist
+    chdir: /home/ubuntu/dist
   environment:
-     ENVIRONMENT: "{{ lookup('env', 'ENVIRONMENT') }}"
-     TYPEORM_CONNECTION: "{{ lookup('env', 'TYPEORM_CONNECTION') }}"
-     TYPEORM_MIGRATIONS_DIR: "./migrations"
-     TYPEORM_MIGRATIONS: "./migrations/*.js"
-     TYPEORM_ENTITIES: "./modules/domain/**/*.entity.js"
-     TYPEORM_HOST: "{{ lookup('env', 'TYPEORM_HOST') }}"
-     TYPEORM_PORT: "{{ lookup('env', 'TYPEORM_PORT') }}"
-     TYPEORM_USERNAME: "{{ lookup('env', 'TYPEORM_USERNAME') }}"
-     TYPEORM_PASSWORD: "{{ lookup('env', 'TYPEORM_PASSWORD') }}"
-     TYPEORM_DATABASE: "{{ lookup('env', 'TYPEORM_DATABASE') }}"
+    ENVIRONMENT: production
+    TYPEORM_CONNECTION: "{{ lookup('env', 'TYPEORM_CONNECTION') }}"
+    TYPEORM_MIGRATIONS_DIR: "./migrations"
+    TYPEORM_MIGRATIONS: "./migrations/*.js"
+    TYPEORM_ENTITIES: "./modules/domain/*/entities/*.entity.js"
+    TYPEORM_HOST: "{{ lookup('env', 'TYPEORM_HOST') }}"
+    TYPEORM_PORT: "{{ lookup('env', 'TYPEORM_PORT') }}"
+    TYPEORM_USERNAME: "{{ lookup('env', 'TYPEORM_USERNAME') }}"
+    TYPEORM_PASSWORD: "{{ lookup('env', 'TYPEORM_PASSWORD') }}"
+    TYPEORM_DATABASE: "{{ lookup('env', 'TYPEORM_DATABASE') }}"
