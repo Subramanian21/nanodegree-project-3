@@ -43,7 +43,8 @@ commands:
           name: Revert migrations
           command: |
             SUCCESS=`curl -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request GET https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}`
-            if(( $SUCCESS == 'failed' ));
+            echo $SUCCESS
+            if(( $SUCCESS == "1" ));
             then
               cd ~/project/backend
               npm install
@@ -240,10 +241,10 @@ jobs:
             if grep -q "has been executed successfully." migrations_dump.txt
             then
               echo "DB migration was successful"
-              curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "success" https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}
+              curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "1" https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}
             else
               echo "DB migration failed"
-              curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "failed" https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}
+              curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "0" https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}
             fi
       - revert-migrations
       - destroy-environment
