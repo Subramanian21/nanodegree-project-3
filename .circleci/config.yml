@@ -41,6 +41,7 @@ commands:
     steps:
       - run:
           name: Revert migrations
+          when: on_fail
           command: |
             SUCCESS=`curl -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request GET https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}`
             echo $SUCCESS
@@ -358,7 +359,7 @@ jobs:
             URL="http://udapeople-${CIRCLE_WORKFLOW_ID:0:7}.s3-website-us-east-1.amazonaws.com"
             if curl -s ${URL} | grep "Welcome"
             then
-              return 0
+              return 1
             else
               return 1
             fi
