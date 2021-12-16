@@ -274,8 +274,6 @@ jobs:
           fingerprints: ["32:53:ee:b1:8d:80:99:e3:a9:4d:ca:c2:15:05:7e:ac:e7:6c:3e:5c"]
       - attach_workspace:
           at: .
-      - restore_cache:
-          keys: [backend-build]
       - run:
           name: Install dependencies
           working_directory: ./.circleci/ansible
@@ -283,13 +281,6 @@ jobs:
             apk add openssh-client
             apk add --update ansible curl rsync openssh nodejs npm
             pip install awscli
-      - run:
-          name: check  existance of dist
-          working_directory: .
-          command: |
-            cd backend
-            pwd
-            ls -la
       - run:
           name: Deploy backend
           working_directory: ./.circleci/ansible
