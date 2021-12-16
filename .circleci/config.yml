@@ -262,7 +262,8 @@ jobs:
         
   deploy-backend:
     docker:
-      - image: python:3.7-alpine3.11
+      - image: cimg/python:3.10.0-node
+        user: root
     steps:
       - checkout
       - add_ssh_keys:
@@ -272,29 +273,41 @@ jobs:
       - restore_cache:
           keys: [backend-build]
       - run:
-          name: Install dependencies
+          name: install dependencies
           command: |
-            apk add --update curl nodejs npm ansible zip
+            sudo apt update
+            sudo apt install software-properties-common
+            sudo add-apt-repository --yes --update ppa:ansible/ansible
+            sudo apt install ansible
             pip install awscli
+      - run:
+          name: install node modules
+          command: |
+            cd /root/project/backend
+            npm install
       - create-env
       - run:
-          name: Build backend app
+          name: Build backend dist
           command: |
-            cd backend
-            npm install
+            cd /root/project/backend
+            npm i
             npm run build
-            cd dist
-            cp ../package.json .
-            zip -rq dist.zip *
-            mkdir -p ~/project/.circleci/ansible/roles/deploy/files/
-            mv dist.zip ~/project/.circleci/ansible/roles/deploy/files/
+            npm run prestart:prod            
+      - run:
+          name: build zip file
+          command: |
+            cd /root/project/
+            tar -zcvf api.tar.gz backend/
+            mv api.tar.gz ~/project/.circleci/ansible/roles/deploy/files/
+      - run:
+          name: add ansible config
+          command: |
+            echo "[ssh_connection]" > ansible.cfg
+            echo "scp_if_ssh=True" >> ansible.cfg
       - run:
           name: Deploy backend
           command: |
-            ls ~/project/.circleci/ansible/roles/deploy/files/
-            cd ~/project/backend
-            ansible-galaxy install weareinteractive.environment
-            ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ~/project/.circleci/ansible/inventory.txt ~/project/.circleci/ansible/deploy-backend.yml
+            ansible-playbook -i .circleci/ansible/inventory.txt .circleci/ansible/deploy-backend.yml
       - destroy-environment
   
   smoke-test:
