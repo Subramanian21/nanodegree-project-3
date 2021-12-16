@@ -62,6 +62,10 @@ jobs:
             cd backend
             npm install
             npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - backend/dist
       - save_cache:
           key: backend-build
           paths: [backend/node_modules]
@@ -323,7 +327,7 @@ jobs:
 workflows:
   default:
     jobs:
-      - build-frontend
+      #- build-frontend
       - build-backend
       #- test-frontend:
       #    requires: [build-frontend]
@@ -334,7 +338,7 @@ workflows:
       #- scan-backend:
       #    requires: [test-backend]
       - deploy-infrastructure:
-          requires: [build-frontend, build-backend]
+          requires: [build-backend]
           filters:
             branches:
               only:
