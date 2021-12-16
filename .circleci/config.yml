@@ -28,7 +28,27 @@ commands:
           command: |
             aws cloudformation delete-stack --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
           when: on_fail
-  
+      - run:
+          name: Destroy frontend
+          command: |
+            aws s3 rm s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+            aws s3 rb s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --force
+            aws cloudformation delete-stack --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"
+          when: on_fail
+          
+  revert-migrations:
+    description: Revert the last migration if successfully run in the current workflow.  
+    steps:
+      - run:
+          name: Revert migrations
+          command: |
+            SUCCESS=`curl -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request GET https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}`
+            if(( $SUCCESS == 'failed' ));
+            then
+              cd ~/project/backend
+              npm install
+              npm run migrations:revert
+            fi          
            
 jobs:  
   build-backend:
@@ -45,6 +65,21 @@ jobs:
       - save_cache:
           key: backend-build
           paths: [backend/node_modules]
+  
+  build-frontend:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - run:
+          name: Build front-end
+          working_directory: ./frontend
+          command: |
+            npm install
+            npm run build
+      - save_cache:
+          key: frontend-build
+          paths: [frontend/node_modules]
                 
   test-backend:
     docker:
@@ -56,6 +91,20 @@ jobs:
       - run:
           name: Test back-end
           working_directory: ./backend
+          command: |
+            npm install
+            npm run test
+            
+  test-frontend:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [frontend-build]
+      - run:
+          name: Test front-end
+          working_directory: ./frontend
           command: |
             npm install
             npm run test
@@ -73,8 +122,22 @@ jobs:
           command: |
             npm install
             npm audit fix --audit-level=critical --force
+            
+  scan-frontend:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [frontend-build]
+      - run:
+          name: Audit front-end vulnerabilities check
+          working_directory: ./frontend
+          command: |
+            npm install
+            npm audit fix --audit-level=critical --force
         
-  deploy-backend-infrastructure:
+  deploy-infrastructure:
     docker:
       - image: amazon/aws-cli
     steps:
@@ -90,6 +153,15 @@ jobs:
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
               --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
       - run:
+          name: Deploy front-end infrastructure
+          working_directory: ./.circleci/files
+          command: |
+            aws cloudformation deploy \
+              --template-file frontend.yml \
+              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
+              --tags project=udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
+      - run:
           name: Add backend ec2 ip to inventory
           working_directory: ./.circleci/ansible
           command: |
@@ -98,6 +170,16 @@ jobs:
               --filters "Name=tag:project,Values=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --output text >> inventory.txt
             cat inventory.txt
+      - run:
+          name: Save back-end ec2 IP in memstash
+          command: |
+            BACKEND_IP=$(aws ec2 describe-instances \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --filters "Name=tag:project,Values=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --output text)
+            echo "BACKEND_IP=$BACKEND_IP"
+            echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
+            curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "$BACKEND_IP" https://api.memstash.io/values/BACKEND_IP_${CIRCLE_WORKFLOW_ID:0:7}   
       - persist_to_workspace:
           root: .
           paths:
@@ -163,6 +245,7 @@ jobs:
               echo "DB migration failed"
               curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "failed" https://api.memstash.io/values/DB_MIGRATION_${CIRCLE_WORKFLOW_ID:0:7}
             fi
+      - revert-migrations
       - destroy-environment
         
   deploy-backend:
@@ -205,6 +288,42 @@ jobs:
             cat inventory.txt
             export ANSIBLE_HOST_KEY_CHECKING=False
             ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.txt deploy-backend.yml
+      - revert-migrations
+      - destroy-environment
+  
+  deploy-frontend:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update tar gzip ansible nodejs npm curl
+            pip install awscli
+      - attach_workspace:
+          at: .
+      - run:
+          name: Get backend url
+          command: |
+            BACKEND_IP=$(curl -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request GET https://api.memstash.io/values/BACKEND_IP_${CIRCLE_WORKFLOW_ID:0:7})
+            export API_URL="http://${BACKEND_IP}:3030"
+            echo "${API_URL}"
+            echo ENVIRONMENT=production > "frontend/.env"
+            echo API_URL=${API_URL} >> "frontend/.env"
+            cat frontend/.env
+      - run:
+          name: Deploy frontend objects
+          working_directory: ./frontend
+          command: |
+            npm install
+            npm run build
+            aws s3 cp ./dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./frontend/dist
+      - revert-migrations
       - destroy-environment
   
   smoke-test:
@@ -226,27 +345,50 @@ jobs:
             BACKEND_IP=$(curl -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request GET https://api.memstash.io/values/BACKEND_IP_${CIRCLE_WORKFLOW_ID:0:7})
             export API_URL="http://${BACKEND_IP}:3030"
             echo "${API_URL}"
-            curl -s "${API_URL}/api/status" -v
+            if curl "${API_URL}/api/status" | grep "ok"
+            then
+                return 0
+            else
+                return 1
+            fi
+      - run:
+          name: Frontend smoke test
+          command: |
+            URL="http://udapeople-${CIRCLE_WORKFLOW_ID:0:7}.s3-website-us-east-1.amazonaws.com"
+            if curl -s ${URL} | grep "Welcome"
+            then
+              return 0
+            else
+              return 1
+            fi
+      - revert-migrations
       - destroy-environment
 
 workflows:
   default:
     jobs:
-      #- build-frontend
+      - build-frontend
       - build-backend
-      #- test-backend:
-      #    requires: [build-backend]
-      #- scan-backend:
-      #    requires: [test-backend]
-      - deploy-backend-infrastructure:
+      - test-frontend:
+          requires: [build-frontend]
+      - test-backend:
           requires: [build-backend]
+      - scan-frontend:
+          requires: [build-frontend]
+      - scan-backend:
+          requires: [build-backend]
+      - deploy-infrastructure:
+          requires: [scan-frontend, scan-backend]
           filters:
             branches:
-              only:
-                - main
+              only: [main]
       - configure-infrastructure:
-          requires: [deploy-backend-infrastructure]
-      #- run-migrations:
-      #    requires: [configure-infrastructure]
-      - deploy-backend:
+          requires: [deploy-infrastructure]
+      - run-migrations:
           requires: [configure-infrastructure]
+      - deploy-frontend:
+          requires: [run-migrations]
+      - deploy-backend:
+          requires: [ run-migrations ]
+      - smoke-test:
+          requires: [deploy-backend, deploy-frontend]
