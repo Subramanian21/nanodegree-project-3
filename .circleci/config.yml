@@ -147,15 +147,15 @@ jobs:
             echo "BACKEND_IP=$BACKEND_IP"
             echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
             curl -H "Content-Type: text/plain" -H "token: b9e915f1-3ed2-4430-8f41-48e5d664f406" --request PUT --data "$BACKEND_IP" https://api.memstash.io/values/BACKEND_IP_${CIRCLE_WORKFLOW_ID:0:7}   
-      - run:
-          name: Deploy front-end infrastructure
-          working_directory: ./.circleci/files
-          command: |
-            aws cloudformation deploy \
-              --template-file frontend.yml \
-              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
-              --tags project=udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}              
+      #- run:
+      #    name: Deploy front-end infrastructure
+      #    working_directory: ./.circleci/files
+      #    command: |
+      #      aws cloudformation deploy \
+      #        --template-file frontend.yml \
+      #        --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+      #        --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
+      #        --tags project=udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}              
       - run:
           name: Add backend ip to inventory
           working_directory: ./.circleci/ansible
@@ -290,7 +290,6 @@ jobs:
           working_directory: ./.circleci/ansible
           command: |
             cat inventory.txt
-            ANSIBLE_HOST_KEY_CHECKING=False
             ansible-playbook -i inventory.txt deploy-backend.yml
       - destroy-environment
   
